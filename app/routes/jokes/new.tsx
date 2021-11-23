@@ -1,16 +1,17 @@
 import type { ActionFunction } from "remix";
 import { useActionData, redirect } from "remix";
 import { db } from "~/utils/db.server";
+import { requireUserId } from "~/utils/session.server";
 
 function validateJokeContent(content: string) {
   if (content.length < 10) {
-    return `That joke must be at least 10 characters long!`;
+    return `That joke is too short`;
   }
 }
 
 function validateJokeName(name: string) {
-  if (name.length < 3) {
-    return `That joke's name must be at least 3 characters long!`;
+  if (name.length < 2) {
+    return `That joke's name is too short`;
   }
 }
 
@@ -29,6 +30,7 @@ type ActionData = {
 export let action: ActionFunction = async ({
   request,
 }): Promise<Response | ActionData> => {
+  let userId = await requireUserId(request);
   let form = await request.formData();
   let name = form.get("name");
   let content = form.get("content");
@@ -45,12 +47,14 @@ export let action: ActionFunction = async ({
     return { fieldErrors, fields };
   }
 
-  let joke = await db.joke.create({ data: fields });
+  let joke = await db.joke.create({
+    data: { ...fields, jokesterId: userId },
+  });
   return redirect(`/jokes/${joke.id}`);
 };
 
 export default function NewJokeRoute() {
-  let actionData = useActionData<ActionData>();
+  let actionData = useActionData<ActionData | undefined>();
 
   return (
     <div>

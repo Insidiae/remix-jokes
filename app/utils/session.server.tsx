@@ -7,6 +7,13 @@ type LoginForm = {
   password: string;
 };
 
+export async function register({ username, password }: LoginForm) {
+  let passwordHash = await bcrypt.hash(password, 10);
+  return db.user.create({
+    data: { username, passwordHash },
+  });
+}
+
 export async function login({ username, password }: LoginForm) {
   let user = await db.user.findUnique({
     where: { username },
@@ -36,12 +43,61 @@ let storage = createCookieSessionStorage({
   },
 });
 
+export function getUserSession(request: Request) {
+  return storage.getSession(request.headers.get("Cookie"));
+}
+
+export async function getUserId(request: Request) {
+  let session = await getUserSession(request);
+  let userId = session.get("userId");
+  if (!userId || typeof userId !== "string") return null;
+  return userId;
+}
+
+export async function requireUserId(
+  request: Request,
+  redirectTo: string = new URL(request.url).pathname
+) {
+  let session = await getUserSession(request);
+  let userId = session.get("userId");
+  if (!userId || typeof userId !== "string") {
+    let searchParams = new URLSearchParams([["redirectTo", redirectTo]]);
+    throw redirect(`/login?${searchParams}`);
+  }
+  return userId;
+}
+
 export async function createUserSession(userId: string, redirectTo: string) {
   let session = await storage.getSession();
   session.set("userId", userId);
   return redirect(redirectTo, {
     headers: {
       "Set-Cookie": await storage.commitSession(session),
+    },
+  });
+}
+
+export async function getUser(request: Request) {
+  let userId = await getUserId(request);
+  if (typeof userId !== "string") {
+    return null;
+  }
+
+  try {
+    let user = await db.user.findUnique({
+      where: { id: userId },
+    });
+    return user;
+  } catch {
+    throw logout(request);
+  }
+}
+
+export async function logout(request: Request) {
+  let session = await storage.getSession(request.headers.get("Cookie"));
+  return redirect("/jokes", {
+    headers: {
+      "Set-Cookie": await storage.destroySession(session),
     },
   });
 }
