@@ -1,5 +1,6 @@
 import { LinksFunction, LoaderFunction } from "remix";
 import { Link, Outlet, useLoaderData } from "remix";
+import type { Joke } from ".prisma/client";
 import { db } from "~/utils/db.server";
 import stylesUrl from "../styles/jokes.css";
 
@@ -13,7 +14,7 @@ export let links: LinksFunction = () => {
 };
 
 type LoaderData = {
-  jokeListItems: Array<{ id: string; name: string }>;
+  jokeListItems: Array<Pick<Joke, "id" | "name">>;
 };
 
 export let loader: LoaderFunction = async () => {
